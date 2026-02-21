@@ -11,6 +11,7 @@ Home Assistant integration for [AU/NZ Mitsubishi Electric Air Conditioners with 
 Features:
  - fast (local) commands
  - zone control support (for ducted systems)
+ - vertical and horizontal vane (air direction) control
  - standby/preheating detection
  - optional 'current temperature' sensor entity
  - Lossnay ERV support (experimental, see below)
@@ -62,6 +63,17 @@ Devices include a **fan entity** with adjustable speed and presets, as well as a
 - Core efficiency.
 
 Support is experimental due to limited testing. If you encounter a problem please open an Issue and include debug logs.
+
+## Vane Control
+Air conditioner units with adjustable vanes can control airflow direction:
+- **Vertical vanes** (up/down): Auto, positions 1-5, Swing
+- **Horizontal vanes** (left/right): Auto, positions 1-5, Split, Swing
+
+Vane controls are available in two ways:
+- **Climate entity**: Native swing mode controls in the climate card (requires Home Assistant 2024.12+)
+- **Select entities**: Separate dropdown selectors for dashboards and automations (enabled via integration options)
+
+Note: Vane controls are only available for air conditioner units, not Lossnay ERV units.
 
 ## Attributions
  - Forked from https://github.com/haggis663/ha-melview (WTFPL licensed)
