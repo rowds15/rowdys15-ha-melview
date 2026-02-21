@@ -208,7 +208,11 @@ class MelViewDevice:
                     if "max" in self._caps:
                         for hvac_mode, mode_id in MODE.items():
                             caps_range = self._caps["max"].get(str(mode_id))
-                            if caps_range and "min" in caps_range and "max" in caps_range:
+                            if (
+                                caps_range
+                                and "min" in caps_range
+                                and "max" in caps_range
+                            ):
                                 self.temp_ranges[hvac_mode] = {
                                     "min": caps_range["min"],
                                     "max": caps_range["max"],
@@ -230,16 +234,20 @@ class MelViewDevice:
 
                     # Create reverse lookups for vane positions
                     if self.has_vertical_vane:
-                        self.vertical_vane_keyed = {v: k for k, v in VERTICAL_VANE.items()}
+                        self.vertical_vane_keyed = {
+                            v: k for k, v in VERTICAL_VANE.items()
+                        }
                     if self.has_horizontal_vane:
-                        self.horizontal_vane_keyed = {v: k for k, v in HORIZONTAL_VANE.items()}
+                        self.horizontal_vane_keyed = {
+                            v: k for k, v in HORIZONTAL_VANE.items()
+                        }
 
                     if "error" in self._caps:
                         if self._caps["error"] != "ok":
                             _LOGGER.warning(
                                 "%s unit capabilities error: %s, attempting to continue",
                                 self.get_friendly_name(),
-                                self._caps["error"]
+                                self._caps["error"],
                             )
                     if "fault" in self._caps:
                         if self._caps["fault"] != "":
@@ -301,7 +309,9 @@ class MelViewDevice:
 
                     if "zones" in self._json:
                         self._zones = {
-                            z["zoneid"]: MelViewZone(z["zoneid"], z["name"], z["status"])
+                            z["zoneid"]: MelViewZone(
+                                z["zoneid"], z["name"], z["status"]
+                            )
                             for z in self._json["zones"]
                         }
                     if "standby" in self._json:
@@ -364,7 +374,7 @@ class MelViewDevice:
                     data = await resp.json()
                 else:
                     req = resp
-        if 'data' in locals():
+        if "data" in locals():
             if self._localip:
                 if "lc" in data:
                     local_command = data["lc"]
@@ -386,7 +396,9 @@ class MelViewDevice:
             if await self._authentication.async_login():
                 return await self.async_send_command(command, retry=False)
         else:
-            _LOGGER.error("Unable to send command (invalid status code: %d)", req.status)
+            _LOGGER.error(
+                "Unable to send command (invalid status code: %d)", req.status
+            )
 
         return False
 
@@ -554,6 +566,32 @@ class MelViewDevice:
             return False
         return await self.async_send_command(f"MD{code}")
 
+    async def async_set_vertical_vane(self, position_label: str) -> bool:
+        """Set vertical vane position by label."""
+        if not await self.async_is_power_on():
+            if not await self.async_power_on():
+                return False
+
+        code = self.vertical_vane_keyed.get(position_label)
+        if code is None:
+            _LOGGER.error("Vertical vane position %s not supported", position_label)
+            return False
+
+        return await self.async_send_command(f"AV{code}")
+
+    async def async_set_horizontal_vane(self, position_label: str) -> bool:
+        """Set horizontal vane position by label."""
+        if not await self.async_is_power_on():
+            if not await self.async_power_on():
+                return False
+
+        code = self.horizontal_vane_keyed.get(position_label)
+        if code is None:
+            _LOGGER.error("Horizontal vane position %s not supported", position_label)
+            return False
+
+        return await self.async_send_command(f"AH{code}")
+
 
 class MelView:
     """Handler for multiple MelView devices under one user"""
@@ -598,8 +636,6 @@ class MelView:
             if await self._authentication.async_login():
                 return await self.async_get_devices_list(retry=False)
 
-        _LOGGER.error(
-            "Failed to get device list (status code invalid: %d)", req.status
-        )
+        _LOGGER.error("Failed to get device list (status code invalid: %d)", req.status)
 
         return None

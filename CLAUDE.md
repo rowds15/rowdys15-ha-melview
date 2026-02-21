@@ -76,3 +76,13 @@ This is the core API client — not a Home Assistant file. It handles authentica
 - Supports 0.5°C steps when enabled in the MelView app
 - Min/max temperatures are dynamic per HVAC mode (COOL, HEAT, DRY uses COOL range)
 - Temperature ranges come from device capabilities
+
+## Vane Controls
+
+- Vertical vane (up/down) via `airdir` field, command `AV{0-7}`
+- Horizontal vane (left/right) via `airdirh` field, command `AH{0-12}`
+- Capabilities: `hasairdir`, `hasairdirh`, `hasswing`, `hasairauto`
+- Exposed as climate entity `swing_mode` / `swing_horizontal_mode` (HA 2024.12+)
+- Optional select entities for dashboard use (gated by `CONF_SENSOR`)
+- Not available on ERV units (A/C only)
+- Quirk: horizontal swing (`AH12`) also activates vertical swing

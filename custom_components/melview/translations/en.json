@@ -50,5 +50,15 @@
                 "title": "Options"
             }
         }
+    },
+    "entity": {
+        "select": {
+            "vertical_vane": {
+                "name": "Vertical vane"
+            },
+            "horizontal_vane": {
+                "name": "Horizontal vane"
+            }
+        }
     }
 }

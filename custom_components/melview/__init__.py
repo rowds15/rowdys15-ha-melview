@@ -22,7 +22,13 @@ type MelViewConfigEntry = ConfigEntry[list[MelViewCoordinator]]
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.CLIMATE, Platform.SWITCH, Platform.SENSOR, Platform.FAN]
+PLATFORMS = [
+    Platform.CLIMATE,
+    Platform.SWITCH,
+    Platform.SENSOR,
+    Platform.FAN,
+    Platform.SELECT,
+]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -77,9 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MelViewConfigEntry) -> b
         _LOGGER.debug("Unable to retrieve device list")
         raise ConfigEntryNotReady("Unable to retrieve device list")
 
-    _cleanup_removed_devices(
-        hass, entry, {str(device.get_id()) for device in devices}
-    )
+    _cleanup_removed_devices(hass, entry, {str(device.get_id()) for device in devices})
 
     device_list = []
     for device in devices:

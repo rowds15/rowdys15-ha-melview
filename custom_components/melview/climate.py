@@ -17,7 +17,7 @@ from homeassistant.const import (
 
 from .coordinator import MelViewCoordinator
 from .entity import MelViewBaseEntity
-from .melview import MODE
+from .melview import MODE, VERTICAL_VANE, HORIZONTAL_VANE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +43,8 @@ class MelViewClimate(MelViewBaseEntity, ClimateEntity):
 
         self._precision = PRECISION_WHOLE
         self._target_step = 1.0
+        self._has_vertical_vane = False
+        self._has_horizontal_vane = False
 
     async def async_added_to_hass(self):
         """Perform async operations when entity is added to hass."""
@@ -52,6 +54,10 @@ class MelViewClimate(MelViewBaseEntity, ClimateEntity):
         if getattr(self._device, "halfdeg", False):
             self._precision = PRECISION_HALVES
             self._target_step = 0.5
+
+        # Check vane capabilities
+        self._has_vertical_vane = getattr(self._device, "has_vertical_vane", False)
+        self._has_horizontal_vane = getattr(self._device, "has_horizontal_vane", False)
 
         await self._device.async_force_update()
 
@@ -63,8 +69,17 @@ class MelViewClimate(MelViewBaseEntity, ClimateEntity):
             | ClimateEntityFeature.TURN_ON
             | ClimateEntityFeature.TURN_OFF
         )
-        if self.hvac_mode in (HVACMode.AUTO, HVACMode.HEAT, HVACMode.COOL, HVACMode.DRY):
+        if self.hvac_mode in (
+            HVACMode.AUTO,
+            HVACMode.HEAT,
+            HVACMode.COOL,
+            HVACMode.DRY,
+        ):
             features |= ClimateEntityFeature.TARGET_TEMPERATURE
+        if self._has_vertical_vane:
+            features |= ClimateEntityFeature.SWING_MODE
+        if self._has_horizontal_vane:
+            features |= ClimateEntityFeature.SWING_HORIZONTAL_MODE
         return features
 
     @property
@@ -213,6 +228,48 @@ class MelViewClimate(MelViewBaseEntity, ClimateEntity):
         """Turn off the unit"""
         _LOGGER.debug("Power off")
         if await self._device.async_power_off():
+            await self.coordinator.async_refresh()
+
+    @property
+    def swing_mode(self) -> str | None:
+        """Return current vertical vane position."""
+        if not self._has_vertical_vane:
+            return None
+        code = self.coordinator.data.get("airdir")
+        return VERTICAL_VANE.get(code)
+
+    @property
+    def swing_modes(self) -> list[str] | None:
+        """Return available vertical vane positions."""
+        if not self._has_vertical_vane:
+            return None
+        return list(VERTICAL_VANE.values())
+
+    async def async_set_swing_mode(self, swing_mode: str) -> None:
+        """Set vertical vane position."""
+        _LOGGER.debug("Set vertical vane: %s", swing_mode)
+        if await self._device.async_set_vertical_vane(swing_mode):
+            await self.coordinator.async_refresh()
+
+    @property
+    def swing_horizontal_mode(self) -> str | None:
+        """Return current horizontal vane position."""
+        if not self._has_horizontal_vane:
+            return None
+        code = self.coordinator.data.get("airdirh")
+        return HORIZONTAL_VANE.get(code)
+
+    @property
+    def swing_horizontal_modes(self) -> list[str] | None:
+        """Return available horizontal vane positions."""
+        if not self._has_horizontal_vane:
+            return None
+        return list(HORIZONTAL_VANE.values())
+
+    async def async_set_swing_horizontal_mode(self, swing_horizontal_mode: str) -> None:
+        """Set horizontal vane position."""
+        _LOGGER.debug("Set horizontal vane: %s", swing_horizontal_mode)
+        if await self._device.async_set_horizontal_vane(swing_horizontal_mode):
             await self.coordinator.async_refresh()
 
 
