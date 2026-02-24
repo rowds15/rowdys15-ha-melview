@@ -2,7 +2,7 @@ import json
 import logging
 import time
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from homeassistant.components.climate.const import HVACMode
 
 from .const import APIVERSION, APPVERSION, HEADERS
@@ -76,7 +76,7 @@ class MelViewAuthentication:
         self._cookie = None
         self._login_json = None
         async with ClientSession() as session:
-            req = await session.post(
+            async with session.post(
                 "https://api.melview.net/api/login.aspx",
                 json={
                     "user": self._email,
@@ -84,24 +84,36 @@ class MelViewAuthentication:
                     "appversion": APPVERSION,
                 },
                 headers=HEADERS,
-            )
-        self._login_json = await req.json()
-        _LOGGER.debug("Login status code: %d", req.status)
-        _LOGGER.debug(
-            "Login response headers:\n%s", json.dumps(dict(req.headers), indent=2)
-        )
-        _LOGGER.debug(
-            "Login response json:\n%s", json.dumps(self._login_json, indent=2)
-        )
-        if req.status == 200:
-            cks = req.cookies
-            if "auth" in cks:
-                auth_value = cks["auth"].value
-                if auth_value:
-                    self._cookie = auth_value
-                    return True
-                else:
-                    _LOGGER.error("Invalid auth cookie")
+            ) as req:
+                self._login_json = await req.json()
+                _LOGGER.debug("Login status code: %d", req.status)
+                _LOGGER.debug(
+                    "Login response headers:\n%s",
+                    json.dumps(dict(req.headers), indent=2),
+                )
+                _LOGGER.debug(
+                    "Login response json:\n%s", json.dumps(self._login_json, indent=2)
+                )
+                if req.status == 200:
+                    cks = req.cookies
+                    if "auth" in cks:
+                        auth_value = cks["auth"].value
+                        if auth_value:
+                            self._cookie = auth_value
+                            return True
+                        else:
+                            _LOGGER.error("Invalid auth cookie")
+                            _LOGGER.error("Login status code: %d", req.status)
+                            _LOGGER.error(
+                                "Login response headers:\n%s",
+                                json.dumps(dict(req.headers), indent=2),
+                            )
+                            _LOGGER.error(
+                                "Login response json:\n%s",
+                                json.dumps(self._login_json, indent=2),
+                            )
+                            return False
+                    _LOGGER.error("Missing auth cookie")
                     _LOGGER.error("Login status code: %d", req.status)
                     _LOGGER.error(
                         "Login response headers:\n%s",
@@ -111,24 +123,17 @@ class MelViewAuthentication:
                         "Login response json:\n%s",
                         json.dumps(self._login_json, indent=2),
                     )
-                    return False
-            _LOGGER.error("Missing auth cookie")
-            _LOGGER.error("Login status code: %d", req.status)
-            _LOGGER.error(
-                "Login response headers:\n%s", json.dumps(dict(req.headers), indent=2)
-            )
-            _LOGGER.error(
-                "Login response json:\n%s", json.dumps(self._login_json, indent=2)
-            )
-        else:
-            _LOGGER.error("Invalid response status")
-            _LOGGER.error("Login status code: %d", req.status)
-            _LOGGER.error(
-                "Login response headers:\n%s", json.dumps(dict(req.headers), indent=2)
-            )
-            _LOGGER.error(
-                "Login response json:\n%s", json.dumps(self._login_json, indent=2)
-            )
+                else:
+                    _LOGGER.error("Invalid response status")
+                    _LOGGER.error("Login status code: %d", req.status)
+                    _LOGGER.error(
+                        "Login response headers:\n%s",
+                        json.dumps(dict(req.headers), indent=2),
+                    )
+                    _LOGGER.error(
+                        "Login response json:\n%s",
+                        json.dumps(self._login_json, indent=2),
+                    )
         return False
 
     def get_cookie(self):
@@ -379,15 +384,20 @@ class MelViewDevice:
             if self._localip:
                 if "lc" in data:
                     local_command = data["lc"]
-                    async with ClientSession() as session:
-                        req = await session.post(
-                            "http://{}/smart".format(self._localip),
-                            data=LOCAL_DATA.format(local_command),
-                        )
-                    if req.status == 200:
-                        _LOGGER.debug("Command sent locally")
-                    else:
-                        _LOGGER.error("Local command failed")
+                    try:
+                        async with ClientSession(
+                            timeout=ClientTimeout(total=5)
+                        ) as session:
+                            async with session.post(
+                                "http://{}/smart".format(self._localip),
+                                data=LOCAL_DATA.format(local_command),
+                            ) as req:
+                                if req.status == 200:
+                                    _LOGGER.debug("Command sent locally")
+                                else:
+                                    _LOGGER.error("Local command failed")
+                    except Exception as err:
+                        _LOGGER.warning("Local command delivery failed: %s", err)
                 else:
                     _LOGGER.error("Missing local command key")
                     _LOGGER.debug("Full command response (no lc key): %s", data)
@@ -606,20 +616,24 @@ class MelView:
     async def async_get_devices_list(self, retry=True):
         """Return all the devices found, as handlers"""
         devices = []
+        req_status = None
+        reply = None
 
         async with ClientSession() as session:
             try:
-                req = await session.post(
+                async with session.post(
                     "https://api.melview.net/api/rooms.aspx",
                     json={"unitid": 0},
                     headers=HEADERS,
                     cookies=self._authentication.get_cookie(),
-                )
+                ) as req:
+                    req_status = req.status
+                    if req.status == 200:
+                        reply = await req.json()
             except Exception as err:
                 _LOGGER.error("Device list request failed: %s", err)
                 return None
-        if req.status == 200:
-            reply = await req.json()
+        if req_status == 200:
             for building in reply:
                 for unit in building["units"]:
                     device = MelViewDevice(
@@ -633,11 +647,11 @@ class MelView:
                     devices.append(device)
             return devices
 
-        if req.status == 401 and retry:
+        if req_status == 401 and retry:
             _LOGGER.error("Device list error 401 (trying to re-login)")
             if await self._authentication.async_login():
                 return await self.async_get_devices_list(retry=False)
 
-        _LOGGER.error("Failed to get device list (status code invalid: %d)", req.status)
+        _LOGGER.error("Failed to get device list (status code invalid: %d)", req_status)
 
         return None
