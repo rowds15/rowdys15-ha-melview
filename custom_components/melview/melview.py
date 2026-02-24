@@ -386,7 +386,7 @@ class MelViewDevice:
                     local_command = data["lc"]
                     try:
                         async with ClientSession(
-                            timeout=ClientTimeout(total=5)
+                            timeout=ClientTimeout(total=30)
                         ) as session:
                             async with session.post(
                                 "http://{}/smart".format(self._localip),
