@@ -38,21 +38,21 @@ LOSSNAY_PRESETS = {
 
 VERTICAL_VANE = {
     0: "Auto",
-    1: "1",
-    2: "2",
-    3: "3",
-    4: "4",
-    5: "5",
+    1: "Up",
+    2: "Upper",
+    3: "Middle",
+    4: "Lower",
+    5: "Down",
     7: "Swing",
 }
 
 HORIZONTAL_VANE = {
     0: "Auto",
-    1: "1",
-    2: "2",
-    3: "3",
-    4: "4",
-    5: "5",
+    1: "Far Left",
+    2: "Left",
+    3: "Centre",
+    4: "Right",
+    5: "Far Right",
     8: "Split",
     12: "Swing",
 }
