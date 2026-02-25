@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -356,6 +357,21 @@ class MelViewDevice:
 
         return True
 
+    async def _async_deliver_local(self, local_command: str) -> None:
+        """Deliver command to local /smart endpoint. Runs as background task."""
+        try:
+            async with ClientSession(timeout=ClientTimeout(total=35)) as session:
+                async with session.post(
+                    "http://{}/smart".format(self._localip),
+                    data=LOCAL_DATA.format(local_command),
+                ) as req:
+                    if req.status == 200:
+                        _LOGGER.debug("Command sent locally")
+                    else:
+                        _LOGGER.error("Local command failed (status %d)", req.status)
+        except Exception as err:
+            _LOGGER.warning("Local command delivery failed: %s", err)
+
     async def async_send_command(self, command, retry=True):
         _LOGGER.debug("Command issued: %s", command)
 
@@ -383,21 +399,7 @@ class MelViewDevice:
         if "data" in locals():
             if self._localip:
                 if "lc" in data:
-                    local_command = data["lc"]
-                    try:
-                        async with ClientSession(
-                            timeout=ClientTimeout(total=30)
-                        ) as session:
-                            async with session.post(
-                                "http://{}/smart".format(self._localip),
-                                data=LOCAL_DATA.format(local_command),
-                            ) as req:
-                                if req.status == 200:
-                                    _LOGGER.debug("Command sent locally")
-                                else:
-                                    _LOGGER.error("Local command failed")
-                    except Exception as err:
-                        _LOGGER.warning("Local command delivery failed: %s", err)
+                    asyncio.ensure_future(self._async_deliver_local(data["lc"]))
                 else:
                     _LOGGER.error("Missing local command key")
                     _LOGGER.debug("Full command response (no lc key): %s", data)
