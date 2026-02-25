@@ -75,6 +75,12 @@ Vane controls are available in two ways:
 
 Note: Vane controls are only available for air conditioner units, not Lossnay ERV units.
 
+### Why horizontal vane changes appear slow
+
+Horizontal vane commands are delivered to the adapter via the local `/smart` LAN endpoint (same as all other commands). However, the adapter firmware processes horizontal vane commands synchronously — it holds the connection open for 20–30 seconds while it executes the movement before responding. Vertical vane commands do not exhibit this behaviour and respond immediately.
+
+To work around this, horizontal vane commands are sent as fire-and-forget background tasks. Home Assistant state updates instantly (reflecting the new position as confirmed by the cloud), while the adapter physically moves the vanes in the background. You may notice a delay of several seconds before the vane physically reaches its new position — this is expected and is a limitation of the adapter firmware, not the integration.
+
 ## Attributions
  - Forked from https://github.com/haggis663/ha-melview (WTFPL licensed)
  - Original repository https://github.com/zacharyrs/ha-melview (WTFPL licensed)
